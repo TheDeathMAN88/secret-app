@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  name          String?
+  password      String
+  avatar        String?
+  isOnline      Boolean  @default(false)
+  lastSeen      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relationships
+  conversations1 Conversation[] @relation("ConversationUser1")
+  conversations2 Conversation[] @relation("ConversationUser2")
+  messages       Message[]
+  mediaFiles     MediaFile[]
+  connections    Connection[] @relation("ConnectionCreator")
+  
+  @@map("users")
+}
+
+model Conversation {
+  id           String   @id @default(cuid())
+  user1Id      String
+  user2Id      String
+  status       String   @default("active") // "active", "ended"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relationships
+  user1        User     @relation("ConversationUser1", fields: [user1Id], references: [id])
+  user2        User     @relation("ConversationUser2", fields: [user2Id], references: [id])
+  messages     Message[]
+  mediaFiles   MediaFile[]
+  
+  @@unique([user1Id, user2Id])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  content        String?
+  conversationId String
+  senderId       String
+  isRead         Boolean     @default(false)
+  isDeleted      Boolean     @default(false)
+  deleteAfter    DateTime    // Will be set to 1 month from creation in application code
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  
+  // Relationships
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  sender         User         @relation(fields: [senderId], references: [id])
+  
+  @@map("messages")
+}
+
+model MediaFile {
+  id             String      @id @default(cuid())
+  filename       String
+  originalName   String
+  fileSize       Int
+  mimeType       String
+  filePath       String
+  isEncrypted    Boolean     @default(true)
+  conversationId String
+  uploadedById   String
+  isDeleted      Boolean     @default(false)
+  deleteAfter    DateTime    // Will be set to 1 month from creation in application code
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  
+  // Relationships
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+  
+  @@map("media_files")
+}
+
+model Connection {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  createdBy    String
+  usedBy       String?
+  status       String   @default("pending") // "pending", "used", "expired"
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime @default(now())
+  
+  // Relationships
+  creator      User     @relation("ConnectionCreator", fields: [createdBy], references: [id])
+  
+  @@map("connections")
+}
